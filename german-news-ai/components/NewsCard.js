@@ -8,20 +8,36 @@ const NewsCard = ({ news, onSummarize }) => {
         return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }).format(date);
     };
 
+    const sourceCount = news.sources ? news.sources.length : 1;
+    const hasMultipleSources = sourceCount > 1;
+
     return (
         <div className={styles.card}>
             <div className={styles.imageContainer}>
                 <img src={news.imageUrl} alt={news.title} className={styles.image} />
-                <span className={styles.category}>{news.source}</span>
+                {hasMultipleSources && (
+                    <span className={styles.sourceCount}>{sourceCount} Quellen</span>
+                )}
+                {!hasMultipleSources && news.sources && (
+                    <span className={styles.category}>{news.sources[0].name}</span>
+                )}
             </div>
 
             <div className={styles.content}>
                 <div className={styles.meta}>
-                    <span className={styles.time}><Clock size={14} /> {formatDate(news.pubDate)}</span>
+                    <Clock size={14} /> <span>{formatDate(news.pubDate)}</span>
                 </div>
 
                 <h3 className={styles.title}>{news.title}</h3>
                 <p className={styles.excerpt}>{(news.summary || '').replace(/<[^>]*>?/gm, '').substring(0, 120)}...</p>
+
+                {hasMultipleSources && (
+                    <div className={styles.sources}>
+                        {news.sources.map((source, i) => (
+                            <span key={i} className={styles.sourceTag}>{source.name}</span>
+                        ))}
+                    </div>
+                )}
 
                 <div className={styles.actions}>
                     <button

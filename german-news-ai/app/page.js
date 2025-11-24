@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import NewsCard from '@/components/NewsCard';
-import ArticleModal from '@/components/ArticleModal';
+import PerplexityModal from '@/components/PerplexityModal';
 import { Newspaper } from 'lucide-react';
 
 export default function Home() {
@@ -92,7 +92,7 @@ export default function Home() {
       </div>
 
       {selectedArticle && (
-        <ArticleModal
+        <PerplexityModal
           article={selectedArticle}
           onClose={() => setSelectedArticle(null)}
         />
