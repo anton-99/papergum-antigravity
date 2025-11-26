@@ -113,7 +113,6 @@ export default function PerplexityModal({ article, onClose }) {
                     ) : (
                         <>
                             <div className={styles.keyPoints}>
-                                <h2>Wichtigste Punkte</h2>
                                 <ul>
                                     {keyPoints.map((point, i) => (
                                         <li key={i}>{point}</li>
@@ -123,13 +122,19 @@ export default function PerplexityModal({ article, onClose }) {
 
                             {/* Detailed Summary Section */}
                             <div className={styles.detailedSummary}>
-                                <h2>Ausführliche Zusammenfassung</h2>
                                 <div className={styles.summaryText}>
                                     {detailedSummary.split('\n\n').map((paragraph, i) => (
                                         <p key={i}>{paragraph}</p>
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Tag */}
+                            {article.category && (
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                    <span className={styles.tag}>{article.category}</span>
+                                </div>
+                            )}
                         </>
                     )}
 
