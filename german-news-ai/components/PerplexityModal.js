@@ -12,29 +12,59 @@ export default function PerplexityModal({ article, onClose }) {
         if (article) {
             setTimeout(() => {
                 // Extract sentences from summary/content for key points
-                const text = article.summary || article.content || '';
-                const cleanText = text.replace(/<[^>]*>/g, ''); // Remove HTML tags
+                // Prioritize content over summary as it's likely longer
+                const text = article.content || article.summary || '';
+                const cleanText = text.replace(/<[^>]*>/g, '')
+                    .replace(/\s+/g, ' ') // Normalize whitespace
+                    .trim();
 
-                // Split into sentences and extract 3-5 key bullet points
-                const sentences = cleanText
-                    .split(/[.!?]+/)
+                // Split into sentences using a more robust regex that handles abbreviations better
+                // This is still a simple heuristic but better than just [.!?]+
+                let sentences = cleanText
+                    .split(/(?<=[.!?])\s+(?=[A-Z])/)
                     .map(s => s.trim())
-                    .filter(s => s.length > 20 && s.length < 200) // Reasonable length
-                    .slice(0, 5); // Max 5 points
+                    .filter(s => s.length > 10); // Keep sentences with some substance
 
-                // Use extracted sentences as key points
-                let mainPoints;
-                if (sentences.length >= 3) {
-                    mainPoints = sentences.map(s => s.charAt(0).toUpperCase() + s.slice(1));
-                } else {
-                    // Fallback: use title and generic points
-                    mainPoints = [
-                        article.title,
-                        "Weitere Details in der ausführlichen Zusammenfassung"
-                    ];
+                // If we don't have enough sentences, try splitting by semicolons or long clauses
+                if (sentences.length < 3) {
+                    const clauseSentences = [];
+                    sentences.forEach(s => {
+                        const clauses = s.split(/[;:]/).map(c => c.trim()).filter(c => c.length > 10);
+                        if (clauses.length > 1) {
+                            clauseSentences.push(...clauses);
+                        } else {
+                            clauseSentences.push(s);
+                        }
+                    });
+                    sentences = clauseSentences;
                 }
 
-                setKeyPoints(mainPoints.slice(0, 4)); // 3-4 points
+                // Deduplicate
+                sentences = [...new Set(sentences)];
+
+                let mainPoints = [];
+
+                // Select up to 5 points
+                if (sentences.length > 0) {
+                    mainPoints = sentences.slice(0, 5).map(s => {
+                        // Ensure it starts with uppercase
+                        let point = s.charAt(0).toUpperCase() + s.slice(1);
+                        // Ensure it doesn't end with punctuation if it's a bullet point style
+                        // but for sentences, we might want to keep it. Let's keep it clean.
+                        if (!point.endsWith('.')) point += '.';
+                        return point;
+                    });
+                }
+
+                // Fallback if we still have absolutely nothing (should be rare if article exists)
+                if (mainPoints.length === 0) {
+                    mainPoints = [article.title];
+                }
+
+                // If we have fewer than 3 points, we just show what we have. 
+                // We explicitly DO NOT add generic filler text like "Weitere Details...".
+
+                setKeyPoints(mainPoints);
 
                 // Generate detailed summary from all article content
                 let detailedText = cleanText;
