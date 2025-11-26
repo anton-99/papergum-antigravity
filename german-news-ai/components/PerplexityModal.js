@@ -4,96 +4,66 @@ import { X, ExternalLink } from 'lucide-react';
 import styles from './PerplexityModal.module.css';
 
 export default function PerplexityModal({ article, onClose }) {
+    // State for key points, detailed summary and loading
     const [keyPoints, setKeyPoints] = useState([]);
     const [detailedSummary, setDetailedSummary] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [hasMultipleSources, setHasMultipleSources] = useState(false);
 
-    useEffect(() => {
-        if (article) {
-            setTimeout(() => {
-                // Extract sentences from summary/content for key points
-                // Prioritize content over summary as it's likely longer
-                const text = article.content || article.summary || '';
-                const cleanText = text.replace(/<[^>]*>/g, '')
-                    .replace(/\s+/g, ' ') // Normalize whitespace
-                    .trim();
-
-                // Split into sentences using a more robust regex that handles abbreviations better
-                // This is still a simple heuristic but better than just [.!?]+
-                let sentences = cleanText
-                    .split(/(?<=[.!?])\s+(?=[A-Z])/)
-                    .map(s => s.trim())
-                    .filter(s => s.length > 10); // Keep sentences with some substance
-
-                // If we don't have enough sentences, try splitting by semicolons or long clauses
-                if (sentences.length < 3) {
-                    const clauseSentences = [];
-                    sentences.forEach(s => {
-                        const clauses = s.split(/[;:]/).map(c => c.trim()).filter(c => c.length > 10);
-                        if (clauses.length > 1) {
-                            clauseSentences.push(...clauses);
-                        } else {
-                            clauseSentences.push(s);
-                        }
-                    });
-                    sentences = clauseSentences;
-                }
-
-                // Deduplicate
-                sentences = [...new Set(sentences)];
-
-                let mainPoints = [];
-
-                // Select up to 5 points
-                if (sentences.length > 0) {
-                    mainPoints = sentences.slice(0, 5).map(s => {
-                        // Ensure it starts with uppercase
-                        let point = s.charAt(0).toUpperCase() + s.slice(1);
-                        // Ensure it doesn't end with punctuation if it's a bullet point style
-                        // but for sentences, we might want to keep it. Let's keep it clean.
-                        if (!point.endsWith('.')) point += '.';
-                        return point;
-                    });
-                }
-
-                // Fallback if we still have absolutely nothing (should be rare if article exists)
-                if (mainPoints.length === 0) {
-                    mainPoints = [article.title];
-                }
-
-                // If we have fewer than 3 points, we just show what we have. 
-                // We explicitly DO NOT add generic filler text like "Weitere Details...".
-
-                setKeyPoints(mainPoints);
-
-                // Generate detailed summary from all article content
-                let detailedText = cleanText;
-
-                // If we have multiple sources, combine their summaries
-                if (article.sources && article.sources.length > 1) {
-                    const sourceSummaries = article.sources
-                        .map(s => (s.summary || s.content || '').replace(/<[^>]*>/g, '').trim())
-                        .filter(s => s.length > 50);
-
-                    if (sourceSummaries.length > 0) {
-                        detailedText = sourceSummaries.join('\n\n');
-                    }
-                }
-
-                // Ensure we have a fallback
-                if (!detailedText || detailedText.length < 50) {
-                    detailedText = `Diese Nachricht behandelt aktuelle Entwicklungen.\n\nFür die neuesten Updates und ausführliche Analysen empfehlen wir, die vollständigen Artikel der jeweiligen Nachrichtenquellen zu lesen.`;
-                }
-
-                setDetailedSummary(detailedText);
-                setIsLoading(false);
-            }, 800);
+    // Helper to extract bullet points from a block of text
+    const extractKeyPoints = (text) => {
+        const clean = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        // Split on sentence boundaries (simple heuristic)
+        let sentences = clean
+            .split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ])/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 10);
+        // If not enough, also split on semicolons/colons
+        if (sentences.length < 3) {
+            const extra = [];
+            sentences.forEach((s) => {
+                const parts = s.split(/[;:]/).map((p) => p.trim()).filter((p) => p.length > 10);
+                extra.push(...parts);
+            });
+            sentences = extra;
         }
+        // Deduplicate and limit to 5 points
+        const uniq = [...new Set(sentences)];
+        return uniq.slice(0, 5).map((s) => {
+            let p = s.charAt(0).toUpperCase() + s.slice(1);
+            if (!p.endsWith('.')) p += '.';
+            return p;
+        });
+    };
+
+    // Fetch enrichment data (key points + detailed summary) from backend
+    useEffect(() => {
+        if (!article) return;
+        const fetchEnrichment = async () => {
+            try {
+                const res = await fetch(`/api/enrich?title=${encodeURIComponent(article.title)}`);
+                if (!res.ok) throw new Error('Enrichment fetch failed');
+                const data = await res.json();
+                // Expected shape: { keyPoints: [], detailedSummary: '', sources: [] }
+                const points = data.keyPoints && data.keyPoints.length ? data.keyPoints : extractKeyPoints(article.content || article.summary || '');
+                setKeyPoints(points);
+                setDetailedSummary(data.detailedSummary || article.content || article.summary || '');
+                setHasMultipleSources(Array.isArray(data.sources) && data.sources.length > 1);
+            } catch (e) {
+                console.error(e);
+                // Fallback to simple extraction from article itself
+                const points = extractKeyPoints(article.content || article.summary || '');
+                setKeyPoints(points);
+                setDetailedSummary(article.content || article.summary || '');
+                setHasMultipleSources(false);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchEnrichment();
     }, [article]);
 
     if (!article) return null;
-
-    const hasMultipleSources = article.sources && article.sources.length > 1;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
@@ -125,20 +95,20 @@ export default function PerplexityModal({ article, onClose }) {
                                 month: 'long',
                                 year: 'numeric',
                                 hour: '2-digit',
-                                minute: '2-digit'
+                                minute: '2-digit',
                             })}
                         </span>
                         {hasMultipleSources && (
-                            <span className={styles.sourceCount}>{article.sources.length} Quellen</span>
+                            <span className={styles.sourceCount}>{article.sources?.length || 0} Quellen</span>
                         )}
                     </div>
 
                     {/* Key Points Section */}
                     {isLoading ? (
                         <div className={styles.skeleton}>
-                            <div className={styles.skeletonLine}></div>
-                            <div className={styles.skeletonLine}></div>
-                            <div className={styles.skeletonLine} style={{ width: '80%' }}></div>
+                            <div className={styles.skeletonLine} />
+                            <div className={styles.skeletonLine} />
+                            <div className={styles.skeletonLine} style={{ width: '80%' }} />
                         </div>
                     ) : (
                         <>
@@ -189,7 +159,7 @@ export default function PerplexityModal({ article, onClose }) {
                                                     day: '2-digit',
                                                     month: 'short',
                                                     hour: '2-digit',
-                                                    minute: '2-digit'
+                                                    minute: '2-digit',
                                                 })}
                                             </span>
                                         </div>
@@ -216,7 +186,7 @@ export default function PerplexityModal({ article, onClose }) {
                                                 day: '2-digit',
                                                 month: 'short',
                                                 hour: '2-digit',
-                                                minute: '2-digit'
+                                                minute: '2-digit',
                                             })}
                                         </span>
                                     </div>
