@@ -102,6 +102,43 @@ app.post('/api/summarize', (req, res) => {
     }, 1000);
 });
 
+app.get('/api/enrich', (req, res) => {
+    const { title } = req.query;
+
+    // Mock Enrichment Data
+    const data = {
+        keyPoints: [
+            "This is a key point about the article.",
+            "Here is another important fact extracted from the news.",
+            "The third point highlights a crucial detail.",
+            "Fourthly, we mention the impact of the event.",
+            "Finally, a concluding point about the situation."
+        ],
+        detailedSummary: `This is a detailed summary of the article titled "${title}". It provides a comprehensive overview of the event, covering the who, what, where, when, and why. The summary is designed to give the reader a deep understanding of the topic without needing to read the full original text.\n\nIn the second paragraph, we delve deeper into the background and context. We explore the implications of the news and how it relates to broader trends. This section aims to provide analysis and perspective.\n\nFinally, the third paragraph concludes the summary with future outlooks and potential consequences. It wraps up the narrative and leaves the reader with a clear picture of the current state of affairs.`,
+        sources: [
+            {
+                name: "Tagesschau",
+                link: "https://www.tagesschau.de",
+                pubDate: new Date().toISOString()
+            },
+            {
+                name: "n-tv",
+                link: "https://www.n-tv.de",
+                pubDate: new Date().toISOString()
+            },
+            {
+                name: "Spiegel",
+                link: "https://www.spiegel.de",
+                pubDate: new Date().toISOString()
+            }
+        ]
+    };
+
+    setTimeout(() => {
+        res.json(data);
+    }, 800);
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
